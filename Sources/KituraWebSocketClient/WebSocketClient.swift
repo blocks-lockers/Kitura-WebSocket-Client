@@ -115,12 +115,8 @@ public class WebSocketClient {
         return self.channel?.isActive ?? false
     }
 
-    public func connect() throws {
-        do {
-            try makeConnection()
-        } catch {
-            throw WebSocketClientConnectionError.WebSocketClientConnectionFailed
-        }
+    public func connect(completion: ((_ success: Bool, _ error: Error?) -> Void)? = nil) {
+        makeConnection(completion: completion)
     }
 
     ///  Used only for testing
@@ -243,17 +239,25 @@ public class WebSocketClient {
         return WebSocketMaskingKey(mask)!
     }
 
-    private func makeConnection() throws {
+    private func makeConnection(completion: ((_ success: Bool, _ error: Error?) -> Void)? = nil) {
+        dispatchPrecondition(condition: .onQueue(DispatchQueue.main))
         let bootstrap = ClientBootstrap(group: group)
             .channelOption(ChannelOptions.socket(SocketOptionLevel(SOL_SOCKET), SO_REUSEPORT), value: 1)
             .channelInitializer(self.clientChannelInitializer)
-        _ = try bootstrap.connect(host: self.host, port: self.port).wait()
+        bootstrap.connect(host: self.host, port: self.port).whenCompleteBlocking(onto: DispatchQueue.main) { result in
+            do {
+                _ = try result.get()
+                completion?(true, nil)
+            } catch {
+                completion?(false, error)
+            }
+        }
         self.upgraded.wait()
     }
 
     private func clientChannelInitializer(channel: Channel) -> EventLoopFuture<Void> {
         let httpHandler = HTTPClientHandler(client: self)
-        let basicUpgrader = NIOWebClientSocketUpgrader(requestKey: self.requestKey, maxFrameSize: 1 << self.maxFrameSize,
+        let basicUpgrader = NIOWebSocketClientUpgrader(requestKey: self.requestKey, maxFrameSize: 1 << self.maxFrameSize,
                                                        automaticErrorHandling: false, upgradePipelineHandler: self.upgradePipelineHandler)
         let config: NIOHTTPClientUpgradeConfiguration = (upgraders: [basicUpgrader],
                                                          completionHandler: { context in
@@ -261,7 +265,7 @@ public class WebSocketClient {
         return channel.pipeline.addHTTPClientHandlers(withClientUpgrade: config).flatMap { _ in
             return channel.pipeline.addHandler(httpHandler).flatMap { _ in
                 if self.enableSSL {
-                    let tlsConfig = TLSConfiguration.forClient()
+                    let tlsConfig = TLSConfiguration.makeClientConfiguration()
                     let sslContext =  try! NIOSSLContext(configuration: tlsConfig)
                     let sslHandler = try! NIOSSLClientHandler(context: sslContext, serverHostname: self.host)
                     return channel.pipeline.addHandler(sslHandler, position: .first)
