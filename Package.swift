@@ -1,4 +1,4 @@
-// swift-tools-version:5.0
+// swift-tools-version:5.5
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 /*
@@ -21,6 +21,9 @@ import PackageDescription
 
 let package = Package(
     name: "KituraWebSocketClient",
+    platforms: [
+        .macOS(.v10_15), .iOS(.v13)
+    ],
     products: [
         // Products define the executables and libraries produced by a package, and make them visible to other packages.
         .library(
@@ -43,12 +46,17 @@ let package = Package(
         // Targets can depend on other targets in this package, and on products in packages which this package depends on.
         .target(
             name: "KituraWebSocketClient",
-            dependencies: ["NIO", "NIOFoundationCompat", "NIOHTTP1", "NIOSSL", "NIOWebSocket", "NIOConcurrencyHelpers", "NIOExtras", "WebSocketCompression", "Kitura-WebSocket",]),
-        .target(
-            name: "TestWebSocketClient",
-            dependencies: ["KituraWebSocketClient"]),
-        .testTarget(
-            name: "WebSocketClientTests",
-            dependencies: ["KituraWebSocketClient", "Kitura-WebSocket", "KituraNet", "LoggerAPI"]),
+            dependencies: [
+                .product(name: "NIO", package: "swift-nio"),
+                .product(name: "NIOFoundationCompat", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "NIOWebSocket", package: "swift-nio"),
+                .product(name: "NIOConcurrencyHelpers", package: "swift-nio"),
+                .product(name: "NIOExtras", package: "swift-nio-extras"),
+                .product(name: "WebSocketCompression", package: "Kitura-WebSocket-Compression"),
+                .product(name: "Kitura-WebSocket", package: "Kitura-WebSocket-NIO"),
+            ]
+        ),
     ]
 )
