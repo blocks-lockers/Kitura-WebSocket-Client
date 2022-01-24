@@ -37,11 +37,6 @@ public class WebSocketClient {
     public var maxFrameSize: Int
     var enableSSL: Bool = false
 
-    ///  This semaphore signals when the client successfully recieves the Connection upgrade response from remote server
-    ///  Ensures that webSocket frames are sent on channel only after the connection is successfully upgraded to WebSocket Connection
-
-    let upgraded = DispatchSemaphore(value: 0)
-
     let callBackSync = DispatchQueue(label: "ErrorCallbackSync")
 
     let compressionConfig: WebSocketCompressionConfiguration?
@@ -252,7 +247,6 @@ public class WebSocketClient {
                 completion?(false, error)
             }
         }
-        self.upgraded.wait()
     }
 
     private func clientChannelInitializer(channel: Channel) -> EventLoopFuture<Void> {
@@ -281,7 +275,6 @@ public class WebSocketClient {
         let handler = WebSocketMessageHandler(client: self)
         if response.status == .switchingProtocols {
             self.channel = channel
-            self.upgraded.signal()
         }
         if self.compressionConfig == nil {
             return channel.pipeline.addHandler(handler)
