@@ -30,6 +30,7 @@ import NIOSSL
 public class WebSocketClient {
 
     let requestKey: String
+    let authToken: String?
     let host: String
     let port: Int
     let uri: String
@@ -61,9 +62,19 @@ public class WebSocketClient {
     ///                      Default value is `14`.
     ///     - compressionConfig : compression configuration
 
-    public init?(host: String, port: Int, uri: String, requestKey: String,
-                 compressionConfig: WebSocketCompressionConfiguration? = nil, maxFrameSize: Int = 14, enableSSL: Bool = false, onOpen: @escaping (Channel?) -> Void = { _ in }) {
+    public init?(
+        host: String,
+        port: Int,
+        uri: String,
+        requestKey: String,
+        authToken: String? = nil,
+        compressionConfig: WebSocketCompressionConfiguration? = nil,
+        maxFrameSize: Int = 14,
+        enableSSL: Bool = false,
+        onOpen: @escaping (Channel?) -> Void = { _ in }
+    ) {
         self.requestKey = requestKey
+        self.authToken = authToken
         self.host = host
         self.port = port
         self.uri = uri
@@ -89,6 +100,7 @@ public class WebSocketClient {
 
     public init?(_ url: String, config: WebSocketCompressionConfiguration? = nil) {
         self.requestKey = "test"
+        self.authToken = nil
         let rawUrl = URL(string: url)
         self.host = rawUrl?.host ?? "localhost"
         self.port = rawUrl?.port ?? 8080
@@ -589,6 +601,9 @@ class HTTPClientHandler: ChannelInboundHandler, RemovableChannelHandler {
         if client.compressionConfig != nil {
             let value = buildExtensionHeader()
             headers.add(name: "Sec-WebSocket-Extensions", value: value)
+        }
+        if let authToken = client.authToken {
+            headers.add(name: "Authorization", value: authToken)
         }
         request.headers = headers
         context.channel.write(NIOAny(HTTPClientRequestPart.head(request)), promise: nil)
